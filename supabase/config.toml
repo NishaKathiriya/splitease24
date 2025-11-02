@@ -1,0 +1,4 @@
+project_id = "vjafbshvcxnjqepkhjhg"
+
+[functions.parse-expense]
+verify_jwt = true
