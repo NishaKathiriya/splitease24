@@ -43,15 +43,33 @@ export const AddExpenseDialog = ({ open, onOpenChange, groupId, members, onExpen
 
       setIsSubmitting(true);
 
-      const { error } = await supabase.from("expenses").insert({
-        group_id: groupId,
-        payer_id: validation.payerId,
-        amount: validation.amount,
-        description: validation.description,
-        category: validation.category,
-      });
+      const { data: expenseData, error } = await supabase
+        .from("expenses")
+        .insert({
+          group_id: groupId,
+          payer_id: validation.payerId,
+          amount: validation.amount,
+          description: validation.description,
+          category: validation.category,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Create expense splits for all members (equal split)
+      const splitAmount = validation.amount / members.length;
+      const splits = members.map(member => ({
+        expense_id: expenseData.id,
+        user_id: member.id,
+        amount: splitAmount,
+      }));
+
+      const { error: splitsError } = await supabase
+        .from("expense_splits")
+        .insert(splits);
+
+      if (splitsError) throw splitsError;
 
       toast.success("Expense added successfully!");
       onExpenseAdded();

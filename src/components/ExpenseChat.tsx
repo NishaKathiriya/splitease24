@@ -48,6 +48,18 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
 
       if (error) throw error;
 
+      // Check if needs clarification
+      if (data.needsClarification) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.message,
+          },
+        ]);
+        return;
+      }
+
       const parsed = data.expense;
       
       // Find payer by name
@@ -67,15 +79,33 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
       }
 
       // Create expense
-      const { error: insertError } = await supabase.from("expenses").insert({
-        group_id: groupId,
-        payer_id: payer.id,
-        amount: parsed.amount,
-        description: parsed.description,
-        category: parsed.category,
-      });
+      const { data: expenseData, error: insertError } = await supabase
+        .from("expenses")
+        .insert({
+          group_id: groupId,
+          payer_id: payer.id,
+          amount: parsed.amount,
+          description: parsed.description,
+          category: parsed.category,
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      // Create expense splits for all members (equal split)
+      const splitAmount = parsed.amount / members.length;
+      const splits = members.map(member => ({
+        expense_id: expenseData.id,
+        user_id: member.id,
+        amount: splitAmount,
+      }));
+
+      const { error: splitsError } = await supabase
+        .from("expense_splits")
+        .insert(splits);
+
+      if (splitsError) throw splitsError;
 
       setMessages((prev) => [
         ...prev,

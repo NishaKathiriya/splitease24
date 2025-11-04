@@ -25,14 +25,17 @@ serve(async (req) => {
 Available members: ${members.join(", ")}
 
 Extract:
-- payer: Who paid (must match one of the members exactly)
+- payer: Who paid (must match one of the members exactly, or null if unclear)
 - amount: Numeric value only
 - description: What was purchased
 - category: One of: Food, Transport, Entertainment, Shopping, Utilities, General
 
+IMPORTANT: If the user says "I" or doesn't specify who paid, set payer to null.
+
 Examples:
-"I paid $30 for pizza" → {"payer": "Alice", "amount": 30, "description": "pizza", "category": "Food"}
+"I paid $30 for pizza" → {"payer": null, "amount": 30, "description": "pizza", "category": "Food"}
 "Bob spent 50 on uber" → {"payer": "Bob", "amount": 50, "description": "uber", "category": "Transport"}
+"Spent $25 on groceries" → {"payer": null, "amount": 25, "description": "groceries", "category": "Shopping"}
 
 Return ONLY valid JSON with these exact fields.`;
 
@@ -78,8 +81,20 @@ Return ONLY valid JSON with these exact fields.`;
     }
 
     // Validate required fields
-    if (!expenseData.payer || !expenseData.amount || !expenseData.description) {
+    if (!expenseData.amount || !expenseData.description) {
       throw new Error("Missing required expense details");
+    }
+
+    // If payer is null, return a clarification request
+    if (!expenseData.payer) {
+      return new Response(
+        JSON.stringify({ 
+          needsClarification: true,
+          message: `Got it! $${expenseData.amount} for ${expenseData.description}. Who paid for this? (${members.join(", ")})`,
+          partialExpense: expenseData
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
