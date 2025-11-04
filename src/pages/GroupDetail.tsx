@@ -7,9 +7,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Sparkles, Calendar, DollarSign, Users as UsersIcon } from "lucide-react";
+import { ArrowLeft, Plus, Sparkles, Calendar, DollarSign, Users as UsersIcon, UserPlus } from "lucide-react";
 import { ExpenseChat } from "@/components/ExpenseChat";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { AddMemberDialog } from "@/components/AddMemberDialog";
 
 interface Group {
   id: string;
@@ -47,6 +48,7 @@ const GroupDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
     loadGroupData();
@@ -188,8 +190,11 @@ const GroupDetail = () => {
 
             {/* Members Card */}
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-lg">Members</CardTitle>
+                <Button size="sm" variant="ghost" onClick={() => setShowAddMember(true)}>
+                  <UserPlus className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="space-y-3">
                 {members.map((member) => (
@@ -286,6 +291,14 @@ const GroupDetail = () => {
         groupId={groupId!}
         members={members.map(m => m.profiles)}
         onExpenseAdded={loadGroupData}
+      />
+
+      <AddMemberDialog
+        open={showAddMember}
+        onOpenChange={setShowAddMember}
+        groupId={groupId!}
+        existingMembers={members.map(m => m.profiles.id)}
+        onMemberAdded={loadGroupData}
       />
     </div>
   );
