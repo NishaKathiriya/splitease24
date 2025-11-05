@@ -30,6 +30,7 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [partialExpense, setPartialExpense] = useState<any | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +44,7 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
     try {
       // Call edge function to parse expense
       const { data, error } = await supabase.functions.invoke("parse-expense", {
-        body: { message: userMessage, members: members.map(m => m.full_name) },
+        body: { message: userMessage, members: members.map(m => m.full_name), partialExpense },
       });
 
       if (error) throw error;
@@ -57,6 +58,7 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
             content: data.message,
           },
         ]);
+        setPartialExpense(data.partialExpense || partialExpense);
         return;
       }
 
@@ -107,6 +109,9 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
 
       if (splitsError) throw splitsError;
 
+      // Clear any partial expense state after successful creation
+      setPartialExpense(null);
+
       setMessages((prev) => [
         ...prev,
         {
@@ -119,15 +124,16 @@ export const ExpenseChat = ({ open, onOpenChange, groupId, members, onExpenseAdd
       onExpenseAdded();
       
       // Close dialog after a short delay
-      setTimeout(() => {
-        onOpenChange(false);
-        setMessages([
-          {
-            role: "assistant",
-            content: "Hi! Tell me about an expense naturally, like: 'I paid $30 for pizza' or 'Spent 50 on groceries'",
-          },
-        ]);
-      }, 1500);
+        setTimeout(() => {
+          onOpenChange(false);
+          setPartialExpense(null);
+          setMessages([
+            {
+              role: "assistant",
+              content: "Hi! Tell me about an expense naturally, like: 'I paid $30 for pizza' or 'Spent 50 on groceries'",
+            },
+          ]);
+        }, 1500);
     } catch (error: any) {
       setMessages((prev) => [
         ...prev,

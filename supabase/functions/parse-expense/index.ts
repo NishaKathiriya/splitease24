@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, members } = await req.json();
+    const { message, members, partialExpense } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -19,6 +19,19 @@ serve(async (req) => {
     }
 
     console.log("Parsing expense from message:", message);
+
+    // If we have a partial expense with amount/description and user now sent a payer name, resolve immediately
+    if (partialExpense && !partialExpense.payer && partialExpense.amount && partialExpense.description) {
+      const lowerMsg = String(message).toLowerCase().trim();
+      const matched = members.find((m: string) => lowerMsg === m.toLowerCase() || lowerMsg.includes(m.toLowerCase()));
+      if (matched) {
+        const completed = { ...partialExpense, payer: matched };
+        return new Response(
+          JSON.stringify({ expense: completed }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     const systemPrompt = `You are an expense parsing AI. Extract expense details from natural language.
     
@@ -77,12 +90,24 @@ Return ONLY valid JSON with these exact fields.`;
       }
     } catch (e) {
       console.error("Failed to parse AI response as JSON:", aiResponse);
-      throw new Error("Could not parse expense details from message");
+      const clarification = "I need more information to parse the expense. Please include an amount and a short description, e.g., '$20 for lunch'.";
+      return new Response(
+        JSON.stringify({ needsClarification: true, message: clarification, partialExpense: null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Validate required fields
     if (!expenseData.amount || !expenseData.description) {
-      throw new Error("Missing required expense details");
+      const missing = [
+        !expenseData.amount ? "amount" : null,
+        !expenseData.description ? "description" : null
+      ].filter(Boolean).join(" and ");
+      const msg = `Please provide the ${missing} for this expense (e.g., '$25 for groceries').`;
+      return new Response(
+        JSON.stringify({ needsClarification: true, message: msg, partialExpense: expenseData }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // If payer is null, return a clarification request
